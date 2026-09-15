@@ -40,3 +40,14 @@ on post-fs
     symlink /dev/block/sdb /dev/block/mmcblk0boot1
     symlink /dev/block/mmcblk0boot0 /dev/block/platform/bootdevice/by-name/preloader_a
     symlink /dev/block/mmcblk0boot1 /dev/block/platform/bootdevice/by-name/preloader_b
+
+# DT2W percobaan: nilai stock saat gesture nyala = w:1;m:1;c:1;cc:1; (cc = double-tap)
+# Ditulis 2x (boot + post-fs-data) karena node proc baru ada setelah driver probe ~1.8s.
+# Kalau driver nolak, cek dmesg "bad command format" - write init tidak menggagalkan boot.
+on boot
+    chmod 0666 /proc/gesture_state
+    write /proc/gesture_state "w:1;m:1;c:1;cc:1;"
+
+on property:sys.boot_from_recovery=1
+    chmod 0666 /proc/gesture_state
+    write /proc/gesture_state "w:1;m:1;c:1;cc:1;"
