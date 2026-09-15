@@ -1,0 +1,63 @@
+name: Build OrangeFox X625D
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+    steps:
+    - name: Checkout device tree
+      uses: actions/checkout@v4
+      with:
+        path: device-tree
+
+    - name: Free space
+      run: |
+        sudo apt-get clean
+        df -h
+        sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc || true
+        df -h
+
+    - name: Install deps
+      run: |
+        sudo apt-get update -qq
+        sudo apt-get install -y git repo python3 openjdk-8-jdk android-tools-adb bc bison build-essential curl flex g++-multilib gcc-multilib gnupg gperf imagemagick lib32ncurses5-dev lib32readline-dev lib32z1-dev liblz4-tool libncurses5 libncurses5-dev libsdl1.2-dev libssl-dev libxml2 libxml2-utils lzop pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev cpio
+        mkdir -p ~/bin
+        curl -s https://storage.googleapis.com/git-repo-downloads/repo > ~/bin/repo
+        chmod a+x ~/bin/repo
+        echo "$HOME/bin" >> $GITHUB_PATH
+        git config --global user.name "gh-action"
+        git config --global user.email "gh-action@local"
+        git config --global color.ui false
+
+    - name: Repo init + sync OrangeFox 9.0 (R11.1)
+      run: |
+        mkdir -p fox && cd fox
+        repo init -u https://gitlab.com/OrangeFox/sync.git -b fox_9.0 --depth=1
+        repo sync -j$(nproc --all) --force-sync --no-clone-bundle --no-tags
+        df -h
+
+    - name: Copy device tree X625D
+      run: |
+        mkdir -p fox/device/infinix/X625D
+        cp -r device-tree/* fox/device/infinix/X625D/
+        ls -R fox/device/infinix/X625D | head -n 50
+        ls -lh fox/device/infinix/X625D/prebuilt/
+
+    - name: Build recovery
+      working-directory: fox
+      run: |
+        source build/envsetup.sh
+        lunch fox_X625D-eng
+        mka recoveryimage -j$(nproc --all)
+        ls -lh out/target/product/X625D/recovery.img
+        echo "X625D OrangeFox unofficial $(date -u)" > out/target/product/X625D/build-info.txt
+
+    - name: Upload recovery.img
+      uses: actions/upload-artifact@v4
+      with:
+        name: OrangeFox-X625D-unofficial
+        path: |
+          fox/out/target/product/X625D/recovery.img
+          fox/out/target/product/X625D/build-info.txt
