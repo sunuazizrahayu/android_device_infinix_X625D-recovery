@@ -28,24 +28,32 @@ jobs:
         distribution: 'zulu'
         java-version: '8'
 
-    - name: Install deps
+    - name: Cache APT packages (hemat ~3-5 mnt per run)
+      uses: awalsh128/cache-apt-pkgs-action@v1
+      with:
+        packages: git python3 android-tools-adb bc bison build-essential curl flex g++-multilib gcc-multilib gnupg gperf imagemagick lib32readline-dev lib32z1-dev liblz4-tool libncurses-dev libsdl1.2-dev libssl-dev libxml2 libxml2-utils lzop pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev cpio ccache
+        version: 1.0
+
+    - name: Install deps (cepat, tanpa apt update ulang)
       run: |
-        sudo apt-get update -qq
-        sudo apt-get install -y git python3 python2 python2-dev android-tools-adb bc bison build-essential curl flex g++-multilib gcc-multilib gnupg gperf imagemagick lib32readline-dev lib32z1-dev liblz4-tool libncurses-dev libsdl1.2-dev libssl-dev libxml2 libxml2-utils lzop pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev cpio libtinfo5 libncurses5 ccache || true
+        # Paket di atas sudah di-restore dari cache oleh step sebelumnya.
+        # Step ini hanya handle yang TIDAK ada di repo jammy + setup cepat.
         # Ubuntu 22.04 tidak sedia libncurses5 -> ambil dari focal (dibutuhkan header-abi-dumper Android 9)
         if [ ! -f /lib/x86_64-linux-gnu/libncurses.so.5 ] && [ ! -f /usr/lib/x86_64-linux-gnu/libncurses.so.5 ]; then
-          wget http://archive.ubuntu.com/ubuntu/pool/universe/n/ncurses/libtinfo5_6.2-0ubuntu2_amd64.deb -O /tmp/libtinfo5.deb
-          wget http://archive.ubuntu.com/ubuntu/pool/universe/n/ncurses/libncurses5_6.2-0ubuntu2_amd64.deb -O /tmp/libncurses5.deb
+          wget -q http://archive.ubuntu.com/ubuntu/pool/universe/n/ncurses/libtinfo5_6.2-0ubuntu2_amd64.deb -O /tmp/libtinfo5.deb
+          wget -q http://archive.ubuntu.com/ubuntu/pool/universe/n/ncurses/libncurses5_6.2-0ubuntu2_amd64.deb -O /tmp/libncurses5.deb
           sudo dpkg -i /tmp/libtinfo5.deb /tmp/libncurses5.deb || sudo apt-get -f install -y
         fi
         ls -lh /lib/x86_64-linux-gnu/libncurses* /usr/lib/x86_64-linux-gnu/libncurses* || true
         # Android 9 wajib default python = python2 (check_radio_versions.py masih print tanpa kurung)
-        sudo ln -sf /usr/bin/python2 /usr/bin/python || sudo ln -sf /usr/bin/python2.7 /usr/bin/python
-        python --version
+        sudo ln -sf /usr/bin/python2 /usr/bin/python || sudo ln -sf /usr/bin/python2.7 /usr/bin/python || true
+        python --version || true
         python3 --version
         mkdir -p ~/bin
-        curl -s https://storage.googleapis.com/git-repo-downloads/repo > ~/bin/repo
-        chmod a+x ~/bin/repo
+        if [ ! -x ~/bin/repo ]; then
+          curl -s https://storage.googleapis.com/git-repo-downloads/repo > ~/bin/repo
+          chmod a+x ~/bin/repo
+        fi
         echo "$HOME/bin" >> $GITHUB_PATH
         git config --global user.name "gh-action"
         git config --global user.email "gh-action@local"
@@ -53,7 +61,7 @@ jobs:
 
     - name: Sync OrangeFox 9.0 legacy (untuk Android 9 X625D)
       run: |
-        git clone https://gitlab.com/OrangeFox/sync.git OrangeFox_sync
+        git clone --depth=1 https://gitlab.com/OrangeFox/sync.git OrangeFox_sync
         ls -la OrangeFox_sync/ OrangeFox_sync/legacy/patches/
         chmod +x OrangeFox_sync/legacy/orangefox_sync_legacy.sh
         # workaround: script legacy nyari patch di patches/, padahal patch 9.0 ada di legacy/patches/
@@ -69,16 +77,19 @@ jobs:
         ls -R fox/device/infinix/X625D | head -n 50
         ls -lh fox/device/infinix/X625D/prebuilt/
 
-    - name: Restore ccache
-      uses: actions/cache@v4
+    - name: Setup ccache (incremental, tidak pakai run_id)
+      uses: hendrikmuhs/ccache-action@v1.2
+      env:
+        CCACHE_DIR: ${{ github.workspace }}/.ccache
       with:
-        path: ~/.ccache
-        key: ccache-fox90-X625D-${{ github.run_id }}
-        restore-keys: |
-          ccache-fox90-X625D-
+        key: fox90-X625D
+        restore-keys: fox90-X625D
+        max-size: 5G
 
     - name: Build recovery
       working-directory: fox
+      env:
+        CCACHE_DIR: ${{ github.workspace }}/.ccache
       run: |
         export LC_ALL=C
         export ALLOW_MISSING_DEPENDENCIES=true
@@ -87,9 +98,7 @@ jobs:
         export OF_USE_LZMA_COMPRESSION=1
         export FOX_DRASTIC_SIZE_REDUCTION=1
         export USE_CCACHE=1
-        export CCACHE_EXEC=/usr/bin/ccache
-        export CCACHE_DIR=$HOME/.ccache
-        ccache -M 5G
+        export CCACHE_EXEC=$(which ccache)
         ccache -z
         source build/envsetup.sh
         lunch omni_X625D-eng
