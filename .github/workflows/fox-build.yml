@@ -37,11 +37,11 @@ jobs:
         git config --global user.email "gh-action@local"
         git config --global color.ui false
 
-    - name: Repo init + sync OrangeFox 9.0 (R11.1)
+    - name: Sync OrangeFox 11.0 (untuk Android 9)
       run: |
-        mkdir -p fox && cd fox
-        repo init -u https://gitlab.com/OrangeFox/sync.git -b fox_9.0 --depth=1
-        repo sync -j$(nproc --all) --force-sync --no-clone-bundle --no-tags
+        git clone https://gitlab.com/OrangeFox/sync.git OrangeFox_sync
+        cd OrangeFox_sync/sync
+        ./orangefox_sync.sh --branch 11.0 --path $GITHUB_WORKSPACE/fox
         df -h
 
     - name: Copy device tree X625D
