@@ -40,8 +40,10 @@ jobs:
     - name: Sync OrangeFox 9.0 legacy (untuk Android 9 X625D)
       run: |
         git clone https://gitlab.com/OrangeFox/sync.git OrangeFox_sync
-        ls -la OrangeFox_sync/
+        ls -la OrangeFox_sync/ OrangeFox_sync/legacy/patches/
         chmod +x OrangeFox_sync/legacy/orangefox_sync_legacy.sh
+        # workaround: script legacy nyari patch di patches/, padahal patch 9.0 ada di legacy/patches/
+        cp OrangeFox_sync/legacy/patches/patch-manifest-fox_9.0.diff OrangeFox_sync/patches/
         cd OrangeFox_sync
         ./legacy/orangefox_sync_legacy.sh --branch 9.0 --path $GITHUB_WORKSPACE/fox
         df -h
