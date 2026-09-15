@@ -42,7 +42,8 @@ jobs:
         git clone https://gitlab.com/OrangeFox/sync.git OrangeFox_sync
         ls -la OrangeFox_sync/
         chmod +x OrangeFox_sync/legacy/orangefox_sync_legacy.sh
-        ./OrangeFox_sync/legacy/orangefox_sync_legacy.sh --branch 9.0 --path $GITHUB_WORKSPACE/fox
+        cd OrangeFox_sync
+        ./legacy/orangefox_sync_legacy.sh --branch 9.0 --path $GITHUB_WORKSPACE/fox
         df -h
 
     - name: Copy device tree X625D
