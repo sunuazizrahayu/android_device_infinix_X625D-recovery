@@ -117,4 +117,6 @@ PLATFORM_VERSION := 9
 
 # Debug
 TWRP_EVENT_LOGGING := true
-TARGET_USE_CUSTOM_LUN_FILE_PATH := /config/usb_gadget/g1/functions/mass_storage.gs0/lun.%d/file
+# MT6765 configfs: mass_storage.0 bukan mass_storage.gs0, dan stock init.rc tidak buat mass_storage
+# biarkan TWRP pakai default dulu biar MTP/ADB tidak rebutan gadget
+#TARGET_USE_CUSTOM_LUN_FILE_PATH := /config/usb_gadget/g1/functions/mass_storage.0/lun.%d/file
