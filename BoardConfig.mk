@@ -37,8 +37,10 @@ TARGET_PREBUILT_KERNEL := $(DEVICE_PATH)/prebuilt/Image.gz
 TARGET_PREBUILT_RECOVERY_KERNEL := $(DEVICE_PATH)/prebuilt/Image.gz
 # dtbo stock 8MB ada partisi sendiri, JANGAN dimasukkan ke recovery
 # (kalau di-include, recovery jadi 37MB > limit 32MB)
+# -> kedua baris ini harus komentar total, jangan set false
+# (build system 9.0 masih kirim --recovery_dtbo kosong kalau diset false)
 #BOARD_PREBUILT_DTBOIMAGE := $(DEVICE_PATH)/prebuilt/dtbo.img
-BOARD_INCLUDE_RECOVERY_DTBO := false
+#BOARD_INCLUDE_RECOVERY_DTBO :=
 
 BOARD_MKBOOTIMG_ARGS += --ramdisk_offset $(BOARD_RAMDISK_OFFSET)
 BOARD_MKBOOTIMG_ARGS += --tags_offset $(BOARD_KERNEL_TAGS_OFFSET)
