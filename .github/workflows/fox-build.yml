@@ -31,7 +31,7 @@ jobs:
     - name: Install deps
       run: |
         sudo apt-get update -qq
-        sudo apt-get install -y git python3 python2 python2-dev android-tools-adb bc bison build-essential curl flex g++-multilib gcc-multilib gnupg gperf imagemagick lib32readline-dev lib32z1-dev liblz4-tool libncurses-dev libsdl1.2-dev libssl-dev libxml2 libxml2-utils lzop pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev cpio libtinfo5 libncurses5 || true
+        sudo apt-get install -y git python3 python2 python2-dev android-tools-adb bc bison build-essential curl flex g++-multilib gcc-multilib gnupg gperf imagemagick lib32readline-dev lib32z1-dev liblz4-tool libncurses-dev libsdl1.2-dev libssl-dev libxml2 libxml2-utils lzop pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev cpio libtinfo5 libncurses5 ccache || true
         # Ubuntu 22.04 tidak sedia libncurses5 -> ambil dari focal (dibutuhkan header-abi-dumper Android 9)
         if [ ! -f /lib/x86_64-linux-gnu/libncurses.so.5 ] && [ ! -f /usr/lib/x86_64-linux-gnu/libncurses.so.5 ]; then
           wget http://archive.ubuntu.com/ubuntu/pool/universe/n/ncurses/libtinfo5_6.2-0ubuntu2_amd64.deb -O /tmp/libtinfo5.deb
@@ -69,6 +69,14 @@ jobs:
         ls -R fox/device/infinix/X625D | head -n 50
         ls -lh fox/device/infinix/X625D/prebuilt/
 
+    - name: Restore ccache
+      uses: actions/cache@v4
+      with:
+        path: ~/.ccache
+        key: ccache-fox90-X625D-${{ github.run_id }}
+        restore-keys: |
+          ccache-fox90-X625D-
+
     - name: Build recovery
       working-directory: fox
       run: |
@@ -78,9 +86,15 @@ jobs:
         export FOX_BUILD_DEVICE=X625D
         export OF_USE_LZMA_COMPRESSION=1
         export FOX_DRASTIC_SIZE_REDUCTION=1
+        export USE_CCACHE=1
+        export CCACHE_EXEC=/usr/bin/ccache
+        export CCACHE_DIR=$HOME/.ccache
+        ccache -M 5G
+        ccache -z
         source build/envsetup.sh
         lunch omni_X625D-eng
         mka recoveryimage -j$(nproc --all)
+        ccache -s
         ls -lh out/target/product/X625D/recovery.img
         echo "X625D OrangeFox unofficial $(date -u)" > out/target/product/X625D/build-info.txt
 
@@ -103,8 +117,8 @@ jobs:
       uses: softprops/action-gh-release@v2
       with:
         tag_name: ${{ env.TAG }}
-        name: OrangeFox X625D ${{ env.TAG }}
-        body: OrangeFox unofficial X625D auto-build ${{ env.TAG }}
+        name: ${{ env.TAG }}
+        body: Unofficial Custom Recovery X625D auto-build ${{ env.TAG }}
         files: OrangeFox-X625D-${{ env.TAG }}.img
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
