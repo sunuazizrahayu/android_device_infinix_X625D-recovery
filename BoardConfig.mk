@@ -35,10 +35,10 @@ BOARD_KERNEL_CMDLINE := bootopt=64S3,32N2,64N2 buildvariant=user
 BOARD_KERNEL_IMAGE_NAME := Image.gz
 TARGET_PREBUILT_KERNEL := $(DEVICE_PATH)/prebuilt/Image.gz
 TARGET_PREBUILT_RECOVERY_KERNEL := $(DEVICE_PATH)/prebuilt/Image.gz
-# dtbo stock 8MB, tidak wajib dimasukkan ke recovery (partisi terpisah),
-# tapi sediakan untuk build yang butuh include dtbo
-BOARD_PREBUILT_DTBOIMAGE := $(DEVICE_PATH)/prebuilt/dtbo.img
-BOARD_INCLUDE_RECOVERY_DTBO := true
+# dtbo stock 8MB ada partisi sendiri, JANGAN dimasukkan ke recovery
+# (kalau di-include, recovery jadi 37MB > limit 32MB)
+#BOARD_PREBUILT_DTBOIMAGE := $(DEVICE_PATH)/prebuilt/dtbo.img
+BOARD_INCLUDE_RECOVERY_DTBO := false
 
 BOARD_MKBOOTIMG_ARGS += --ramdisk_offset $(BOARD_RAMDISK_OFFSET)
 BOARD_MKBOOTIMG_ARGS += --tags_offset $(BOARD_KERNEL_TAGS_OFFSET)
@@ -75,7 +75,7 @@ RECOVERY_SDCARD_ON_DATA := true
 RECOVERY_GRAPHICS_USE_LINENUMBER := true
 TARGET_RECOVERY_INITRC := $(DEVICE_PATH)/recovery/root/init.recovery.mt6765.rc
 
-# TWRP
+# TWRP - dioptimasi ukuran (limit recovery 32MB)
 TW_THEME := portrait_hdpi
 TW_SCREEN_BLANK_ON_BOOT := true
 TW_BRIGHTNESS_PATH := "/sys/class/leds/lcd-backlight/brightness"
@@ -84,16 +84,18 @@ TW_DEFAULT_BRIGHTNESS := 150
 TW_SECONDARY_BRIGHTNESS_PATH := "/sys/class/leds/lcd-backlight/brightness"
 TW_NO_SCREEN_BLANK := true
 TW_EXCLUDE_DEFAULT_USB_INIT := true
-TW_INCLUDE_NTFS_3G := true
+TW_INCLUDE_NTFS_3G := false
 TW_INCLUDE_FUSE_EXFAT := true
-TW_INCLUDE_FUSE_NTFS := true
-TW_EXTRA_LANGUAGES := true
+TW_INCLUDE_FUSE_NTFS := false
+TW_EXTRA_LANGUAGES := false
 TW_DEFAULT_LANGUAGE := en
 TW_USE_TOOLBOX := true
 TWRP_INCLUDE_LOGCAT := true
 TARGET_USES_LOGD := true
-TW_EXCLUDE_TWRPAPP := false
-TW_INCLUDE_REPACKTOOLS := true
+TW_EXCLUDE_TWRPAPP := true
+TW_INCLUDE_REPACKTOOLS := false
+TW_EXCLUDE_TZDATA := true
+TW_EXCLUDE_LPDUMP := true
 TW_HAS_MTP := true
 TW_MTP_DEVICE := "Infinix X625D"
 TW_EXTERNAL_STORAGE_PATH := "/external_sd"
