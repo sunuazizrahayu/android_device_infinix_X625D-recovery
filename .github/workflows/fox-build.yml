@@ -3,6 +3,9 @@ name: Build OrangeFox X625D
 on:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-22.04
@@ -88,3 +91,20 @@ jobs:
         path: |
           fox/out/target/product/X625D/recovery.img
           fox/out/target/product/X625D/build-info.txt
+
+    - name: Rename for release
+      run: |
+        TAG=$(date +'%Y%m%d%H%M')
+        echo "TAG=$TAG" >> $GITHUB_ENV
+        cp fox/out/target/product/X625D/recovery.img OrangeFox-X625D-$TAG.img
+        ls -lh OrangeFox-X625D-$TAG.img
+
+    - name: Release langsung
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ env.TAG }}
+        name: OrangeFox X625D ${{ env.TAG }}
+        body: OrangeFox unofficial X625D auto-build ${{ env.TAG }}
+        files: OrangeFox-X625D-${{ env.TAG }}.img
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
