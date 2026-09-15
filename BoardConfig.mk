@@ -87,7 +87,9 @@ TW_SECONDARY_BRIGHTNESS_PATH := "/sys/class/leds/lcd-backlight/brightness"
 TW_NO_SCREEN_BLANK := true
 # JANGAN exclude default USB init - kalau true, TWRP tidak buat ffs.mtp
 # dan init.recovery.mt6765.rc cuma buat ffs.adb -> log "could not open MTP driver, errno: 2"
-TW_EXCLUDE_DEFAULT_USB_INIT := false
+# UPDATE: default USB TWRP ternyata tidak jalan di kernel prebuilt mt6765 ini (ADB mati total),
+# jadi balik ke true + gadget custom adb+mtp di init.recovery.mt6765.rc
+TW_EXCLUDE_DEFAULT_USB_INIT := true
 TW_NO_USB_STORAGE := false
 TW_INCLUDE_NTFS_3G := false
 TW_INCLUDE_FUSE_EXFAT := true
@@ -130,5 +132,5 @@ PLATFORM_VERSION := 9
 
 # Debug
 TWRP_EVENT_LOGGING := true
-# Biarkan TWRP (init.recovery.usb.rc) yang buat configfs gadget adb+mtp.
-# Custom gadget adb-only di init.recovery.mt6765.rc sudah dipindah ke file itu (dikomentari).
+# USB gadget di-handle manual di init.recovery.mt6765.rc (adb + mtp.gs0 + ffs.mtp)
+# karena default init.recovery.usb.rc tidak bring-up UDC musb-hdrc di device ini.

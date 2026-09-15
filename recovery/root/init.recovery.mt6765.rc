@@ -1,25 +1,33 @@
 # init.recovery.mt6765.rc - USB configfs untuk X625D (diambil dari stock recovery.img)
-# REVISI: JANGAN buat gadget adb-only di sini.
-# Log lama: "E:[MTP] could not open MTP driver, errno: 2" karena file ini cuma buat
-# ffs.adb (idProduct 0xd001), sementara TW_EXCLUDE_DEFAULT_USB_INIT=true mematikan
-# init.recovery.usb.rc bawaan TWRP yang seharusnya buat ffs.mtp + mass_storage.0.
-# Sekarang TW_EXCLUDE_DEFAULT_USB_INIT=false, biarkan TWRP yang buat gadget adb+mtp.
-# Blok di bawah sengaja dikomentari, jangan diaktifkan lagi kecuali MTP mau dimatikan.
-#
-# on init
-#     mkdir /config
-#     mount configfs none /config
-#     mkdir /config/usb_gadget/g1 0770 shell shell
-#     write /config/usb_gadget/g1/idVendor 0x18d1
-#     write /config/usb_gadget/g1/idProduct 0xd001
-#     mkdir /config/usb_gadget/g1/strings/0x409 0770
-#     write /config/usb_gadget/g1/strings/0x409/serialnumber ${ro.serialno}
-#     write /config/usb_gadget/g1/strings/0x409/manufacturer ${ro.product.manufacturer}
-#     write /config/usb_gadget/g1/strings/0x409/product ${ro.product.model}
-#     mkdir /config/usb_gadget/g1/configs/b.1 0777 shell shell
-#     mkdir /config/usb_gadget/g1/configs/b.1/strings/0x409 0770 shell shell
-#     mkdir /config/usb_gadget/g1/functions/ffs.adb
-#     setprop sys.usb.ffs.aio_compat 1
+# Fix ADB OrangeFox: stock cuma start adbd saat ro.debuggable=0,
+# di Fox (eng, debuggable=1) adbd tidak ke-start -> tambah trigger debuggable=1
+# Fix MTP: stock cuma buat ffs.adb -> TWRP log "could not open MTP driver, errno: 2"
+# karena /dev/mtp_usb tidak ada. Tambah mtp.gs0 (buat /dev/mtp_usb, dipakai TWRP MtpServer)
+# + ffs.mtp, link dua-duanya sebagai mtp_adb (idProduct 0x4ee2).
+# TW_EXCLUDE_DEFAULT_USB_INIT=true, jadi file ini yang pegang gadget, jangan dimatikan.
+
+on init
+    mkdir /config
+    mount configfs none /config
+    mkdir /config/usb_gadget/g1 0770 shell shell
+    write /config/usb_gadget/g1/idVendor 0x18d1
+    write /config/usb_gadget/g1/idProduct 0x4ee2
+    mkdir /config/usb_gadget/g1/strings/0x409 0770
+    write /config/usb_gadget/g1/strings/0x409/serialnumber ${ro.serialno}
+    write /config/usb_gadget/g1/strings/0x409/manufacturer ${ro.product.manufacturer}
+    write /config/usb_gadget/g1/strings/0x409/product ${ro.product.model}
+    mkdir /config/usb_gadget/g1/configs/b.1 0777 shell shell
+    mkdir /config/usb_gadget/g1/configs/b.1/strings/0x409 0770 shell shell
+    mkdir /config/usb_gadget/g1/functions/ffs.adb
+    mkdir /config/usb_gadget/g1/functions/mtp.gs0
+    mkdir /config/usb_gadget/g1/functions/ffs.mtp
+    mkdir /dev/usb-ffs 0770 shell shell
+    mkdir /dev/usb-ffs/adb 0770 shell shell
+    mount functionfs adb /dev/usb-ffs/adb uid=2000,gid=2000
+    mkdir /dev/usb-ffs/mtp 0770 shell shell
+    mount functionfs mtp /dev/usb-ffs/mtp uid=2000,gid=2000
+    setprop sys.usb.ffs.aio_compat 1
+    setprop sys.usb.config mtp,adb
 
 on property:ro.debuggable=0
     write /sys/class/udc/musb-hdrc/device/cmode 2
@@ -29,15 +37,29 @@ on property:ro.debuggable=1
     write /sys/class/udc/musb-hdrc/device/cmode 2
     start adbd
 
-# on property:sys.usb.ffs.ready=1
-#     write /config/usb_gadget/g1/UDC "none"
-#     rm /config/usb_gadget/g1/configs/b.1/f1
-#     rm /config/usb_gadget/g1/configs/b.1/f2
-#     write /config/usb_gadget/g1/configs/b.1/strings/0x409/configuration "adb"
-#     write /config/usb_gadget/g1/idVendor 0x18d1
-#     write /config/usb_gadget/g1/idProduct 0xd001
-#     symlink /config/usb_gadget/g1/functions/ffs.adb /config/usb_gadget/g1/configs/b.1/f1
-#     write /config/usb_gadget/g1/UDC "musb-hdrc"
+on property:sys.usb.ffs.ready=1
+    write /config/usb_gadget/g1/UDC "none"
+    rm /config/usb_gadget/g1/configs/b.1/f1
+    rm /config/usb_gadget/g1/configs/b.1/f2
+    write /config/usb_gadget/g1/configs/b.1/strings/0x409/configuration "mtp_adb"
+    write /config/usb_gadget/g1/idVendor 0x18d1
+    write /config/usb_gadget/g1/idProduct 0x4ee2
+    symlink /config/usb_gadget/g1/functions/ffs.adb /config/usb_gadget/g1/configs/b.1/f1
+    symlink /config/usb_gadget/g1/functions/mtp.gs0 /config/usb_gadget/g1/configs/b.1/f2
+    write /config/usb_gadget/g1/UDC "musb-hdrc"
+    setprop sys.usb.state "mtp,adb"
+
+on property:sys.usb.ffs.mtp.ready=1
+    write /config/usb_gadget/g1/UDC "none"
+    rm /config/usb_gadget/g1/configs/b.1/f1
+    rm /config/usb_gadget/g1/configs/b.1/f2
+    write /config/usb_gadget/g1/configs/b.1/strings/0x409/configuration "mtp_adb"
+    write /config/usb_gadget/g1/idVendor 0x18d1
+    write /config/usb_gadget/g1/idProduct 0x4ee2
+    symlink /config/usb_gadget/g1/functions/ffs.adb /config/usb_gadget/g1/configs/b.1/f1
+    symlink /config/usb_gadget/g1/functions/mtp.gs0 /config/usb_gadget/g1/configs/b.1/f2
+    write /config/usb_gadget/g1/UDC "musb-hdrc"
+    setprop sys.usb.state "mtp,adb"
 
 on post-fs
     symlink /dev/block/sda /dev/block/mmcblk0boot0
