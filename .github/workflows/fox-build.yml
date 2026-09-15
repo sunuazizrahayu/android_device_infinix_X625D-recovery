@@ -37,11 +37,12 @@ jobs:
         git config --global user.email "gh-action@local"
         git config --global color.ui false
 
-    - name: Sync OrangeFox 11.0 (untuk Android 9)
+    - name: Sync OrangeFox 9.0 legacy (untuk Android 9 X625D)
       run: |
         git clone https://gitlab.com/OrangeFox/sync.git OrangeFox_sync
-        cd OrangeFox_sync/sync
-        ./orangefox_sync.sh --branch 11.0 --path $GITHUB_WORKSPACE/fox
+        ls -la OrangeFox_sync/
+        chmod +x OrangeFox_sync/legacy/orangefox_sync_legacy.sh
+        ./OrangeFox_sync/legacy/orangefox_sync_legacy.sh --branch 9.0 --path $GITHUB_WORKSPACE/fox
         df -h
 
     - name: Copy device tree X625D
@@ -54,8 +55,12 @@ jobs:
     - name: Build recovery
       working-directory: fox
       run: |
+        export LC_ALL=C
+        export ALLOW_MISSING_DEPENDENCIES=true
+        export FOX_USE_TWRP_RECOVERY_IMAGE_BUILDER=1
+        export FOX_BUILD_DEVICE=X625D
         source build/envsetup.sh
-        lunch fox_X625D-eng
+        lunch omni_X625D-eng
         mka recoveryimage -j$(nproc --all)
         ls -lh out/target/product/X625D/recovery.img
         echo "X625D OrangeFox unofficial $(date -u)" > out/target/product/X625D/build-info.txt
