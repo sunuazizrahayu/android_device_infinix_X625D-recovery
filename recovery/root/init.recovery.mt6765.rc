@@ -67,6 +67,36 @@ on post-fs
     symlink /dev/block/mmcblk0boot0 /dev/block/platform/bootdevice/by-name/preloader_a
     symlink /dev/block/mmcblk0boot1 /dev/block/platform/bootdevice/by-name/preloader_b
 
+# TEE microtrust: teei_daemon WAJIB jalan sebelum decrypt FDE.
+# Tanpa ini keymaster hang di kernel (proses D-state, log "Decrypt took too long")
+# karena /dev/teei_client tidak ada yang serve. Di boot normal daemon ini
+# di-start vendor microtrust.rc (service teei_daemon, class core, user/group system).
+service teei_daemon /vendor/bin/teei_daemon
+    class core
+    user system
+    group system
+    disabled
+
+on boot
+    chmod 0660 /dev/teei_client
+    chown system system /dev/teei_client
+    chmod 0660 /dev/teei_config
+    chown system system /dev/teei_config
+    chmod 0660 /dev/tee0
+    chown system keystore /dev/tee0
+    chmod 0660 /dev/tz_vfs
+    chown system system /dev/tz_vfs
+    chmod 0660 /dev/teei_fp
+    chown system system /dev/teei_fp
+    chmod 0660 /dev/ut_keymaster
+    chown system keystore /dev/ut_keymaster
+    chmod 0660 /dev/rpmb0
+    chown system system /dev/rpmb0
+    chown system system /sys/bus/platform/devices/utos/load_ut_drv
+    chown system system /sys/bus/platform/devices/utos/unload_ut_drv
+    chown system system /sys/bus/platform/devices/utos/notify_ree_dci_handler
+    start teei_daemon
+
 # DT2W percobaan: nilai stock saat gesture nyala = w:1;m:1;c:1;cc:1; (cc = double-tap)
 # Ditulis 2x (boot + post-fs-data) karena node proc baru ada setelah driver probe ~1.8s.
 # Kalau driver nolak, cek dmesg "bad command format" - write init tidak menggagalkan boot.
