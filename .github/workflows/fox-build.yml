@@ -46,8 +46,15 @@ jobs:
         fi
         ls -lh /lib/x86_64-linux-gnu/libncurses* /usr/lib/x86_64-linux-gnu/libncurses* || true
         # Android 9 wajib default python = python2 (check_radio_versions.py masih print tanpa kurung)
-        sudo ln -sf /usr/bin/python2 /usr/bin/python || sudo ln -sf /usr/bin/python2.7 /usr/bin/python || true
-        python --version || true
+        # Ubuntu 22.04 tidak sedia python2 -> ambil dari repo focal (jammy sudah drop python2)
+        if [ ! -x /usr/bin/python2 ] && [ ! -x /usr/bin/python2.7 ]; then
+          echo "deb http://archive.ubuntu.com/ubuntu/ focal universe" | sudo tee /etc/apt/sources.list.d/focal-universe.list
+          sudo apt-get update -o Dir::Etc::sourcelist="sources.list.d/focal-universe.list" -o Dir::Etc::sourceparts="-" -o APT::Get::List-Cleanup="0"
+          sudo apt-get install -y --no-install-recommends python2 python2.7 python2.7-minimal libpython2.7-minimal libpython2.7-stdlib || sudo apt-get install -y python2.7
+          sudo rm -f /etc/apt/sources.list.d/focal-universe.list
+        fi
+        sudo ln -sf /usr/bin/python2 /usr/bin/python || sudo ln -sf /usr/bin/python2.7 /usr/bin/python
+        python --version
         python3 --version
         mkdir -p ~/bin
         if [ ! -x ~/bin/repo ]; then
