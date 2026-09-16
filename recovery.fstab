@@ -1,23 +1,24 @@
-# TWRP fstab untuk Infinix Hot 7 Pro X625D (MT6765, Android 9, A-only, FBE)
-# Sumber: stock etc/recovery.fstab dari X625D-H623L-P-201015V258
-# Format TWRP: <mount_point> <fstype> <device> [flags]
+# TWRP fstab untuk Infinix Hot 7 Pro X625D (MT6765, Android 9, A-only, FDE-or-FBE)
+# Sumber: stock vendor fstab.mt6765 -> forcefdeorfbe=/dev/block/.../metadata
+# TWRP R11 tidak kenal flag forcefdeorfbe, padanannya:
+#   FDE  -> encryptable=<footer>  (footer di partisi metadata mentah 32MB, terbukti ada magic aes-cbc-essiv:sha256)
+#   FBE  -> fileencryption=aes-256-cts
+# Keduanya dipasang karena stock pakai forcefdeorfbe (bisa FDE atau FBE).
 
 /boot        emmc   /dev/block/platform/bootdevice/by-name/boot
 /recovery    emmc   /dev/block/platform/bootdevice/by-name/recovery
 /system      ext4   /dev/block/platform/bootdevice/by-name/system   flags=display="System";backup=1;wipeduringfactoryreset
 /vendor      ext4   /dev/block/platform/bootdevice/by-name/vendor   flags=display="Vendor";backup=1;wipeduringfactoryreset
-/data        ext4   /dev/block/platform/bootdevice/by-name/userdata   flags=fileencryption=aes-256-cts;storage;wipeingui
-# /metadata raw 32MB (scatter SYS31) - JANGAN tambah flag forcefdeorfbe=... di atas,
-# TWRP R11 9.0 tidak kenal flag itu (log: "Unhandled flag") dan malah skip decrypt.
+/data        ext4   /dev/block/platform/bootdevice/by-name/userdata   flags=fileencryption=aes-256-cts;encryptable=/dev/block/platform/bootdevice/by-name/metadata;storage;wipeingui
 /cache       ext4   /dev/block/platform/bootdevice/by-name/cache   flags=display="Cache";backup=1;wipeduringfactoryreset;wipeingui
-/tranfs      ext4   /dev/block/platform/bootdevice/by-name/tranfs   flags=display="Tranfs";backup=1;wipeingui;nofail
+/tranfs      ext4   /dev/block/platform/bootdevice/by-name/tranfs   flags=display="Tranfs";backup=1;wipeingui
 # scatter TIDAK punya partisi by-name/sdcard - MicroSD MTK via mmcblk1, voldmanaged
-/external_sd auto   /dev/block/mmcblk1p1   flags=display="MicroSD";storage;wipeingui;removable;nofail;voldmanaged=sdcard1:auto
-/external_sd auto   /dev/block/mmcblk1     flags=display="MicroSD";storage;wipeingui;removable;nofail;voldmanaged=sdcard1:auto
-/usb-otg     auto   /dev/block/sda1   flags=display="OTG";storage;wipeingui;removable;nofail;voldmanaged=usbotg:auto
-/usb-otg     auto   /dev/block/sda    flags=display="OTG";storage;wipeingui;removable;nofail;voldmanaged=usbotg:auto
+# (satu baris saja per mount point; duplikat bikin Primary_Block_Device kosong di log)
+# R11 tidak kenal flag 'nofail' -> jangan dipakai (log: "Unhandled flag")
+/external_sd auto   /dev/block/mmcblk1p1   flags=display="MicroSD";storage;wipeingui;removable;voldmanaged=sdcard1:auto
+/usb-otg     auto   /dev/block/sda1   flags=display="OTG";storage;wipeingui;removable;voldmanaged=usbotg:auto
 /logo        emmc   /dev/block/platform/bootdevice/by-name/logo
 /expdb       emmc   /dev/block/platform/bootdevice/by-name/expdb
 /nvram       emmc   /dev/block/platform/bootdevice/by-name/nvram   flags=display="Nvram";backup=1
-/nvdata      ext4   /dev/block/platform/bootdevice/by-name/nvdata   flags=display="Nvdata";backup=1;nofail
-/persist     ext4   /dev/block/platform/bootdevice/by-name/persist flags=display="Persist";backup=1;nofail
+/nvdata      ext4   /dev/block/platform/bootdevice/by-name/nvdata   flags=display="Nvdata";backup=1
+/persist     ext4   /dev/block/platform/bootdevice/by-name/persist flags=display="Persist";backup=1
