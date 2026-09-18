@@ -66,6 +66,20 @@ jobs:
         git config --global user.email "gh-action@local"
         git config --global color.ui false
 
+    - name: Cache OrangeFox source (legacy 9.0, jarang update)
+      # Source 9.0 legacy praktis beku -> cache direktori hasil sync agar
+      # run berikutnya cukup `repo sync` inkremental (detik-menit, bukan
+      # belasan menit download ulang). Naikkan suffix -vN di key kalau
+      # mau paksa sync segar dari nol.
+      uses: actions/cache@v4
+      with:
+        # JANGAN ikutkan fox/out (hasil build, GB-an, sudah di-cover ccache).
+        # Tanpa exclude ini tar cache bikin disk runner penuh (zstd error 70).
+        path: |
+          fox
+          !fox/out
+        key: fox90-source-v1
+
     - name: Sync OrangeFox 9.0 legacy (untuk Android 9 X625D)
       run: |
         git clone --depth=1 https://gitlab.com/OrangeFox/sync.git OrangeFox_sync
