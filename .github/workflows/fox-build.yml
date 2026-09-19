@@ -143,12 +143,42 @@ jobs:
         cp fox/out/target/product/X625D/recovery.img OrangeFox-X625D-$TAG.img
         ls -lh OrangeFox-X625D-$TAG.img
 
+    - name: Prepare release notes (branch + commit + link)
+      run: |
+        cd device-tree
+        BRANCH="${GITHUB_REF_NAME}"
+        SHA=$(git rev-parse HEAD)
+        SHORT=$(git rev-parse --short HEAD)
+        MSG=$(git log -1 --pretty=%s)
+        REPO="${GITHUB_REPOSITORY}"
+        echo "DT_BRANCH=$BRANCH" >> $GITHUB_ENV
+        echo "DT_SHA=$SHA" >> $GITHUB_ENV
+        echo "DT_SHORT=$SHORT" >> $GITHUB_ENV
+        echo "Branch: $BRANCH @ $SHORT ($MSG)"
+        # Default pre-release; jadi rilis stabil hanya kalau pesan commit ada
+        # [release] / [release] xxx / [release]: xxx / release: xxx
+        if echo "$MSG" | grep -iqE '\[release\]|release:'; then
+          echo "IS_PRERELEASE=false" >> $GITHUB_ENV
+          echo "Match [release] -> stable release"
+        else
+          echo "IS_PRERELEASE=true" >> $GITHUB_ENV
+          echo "No [release] flag -> pre-release"
+        fi
+        cat > $GITHUB_WORKSPACE/release-notes.md <<EOF
+        Unofficial Custom Recovery X625D auto-build ${{ env.TAG }}
+
+        Device tree: [\`${BRANCH}\`](https://github.com/${REPO}/tree/${BRANCH}) — [\`${SHORT}\`](https://github.com/${REPO}/commit/${SHA}) ${MSG}
+        OrangeFox source: branch \`9.0\` (legacy sync)
+        EOF
+        cat $GITHUB_WORKSPACE/release-notes.md
+
     - name: Release langsung
       uses: softprops/action-gh-release@v2
       with:
         tag_name: ${{ env.TAG }}
         name: ${{ env.TAG }}
-        body: Unofficial Custom Recovery X625D auto-build ${{ env.TAG }}
+        body_path: release-notes.md
+        prerelease: ${{ env.IS_PRERELEASE }}
         files: OrangeFox-X625D-${{ env.TAG }}.img
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
