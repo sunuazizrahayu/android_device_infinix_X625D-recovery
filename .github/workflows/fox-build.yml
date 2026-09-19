@@ -155,6 +155,16 @@ jobs:
         ccache -s
         ls -lh out/target/product/X625D/recovery.img
         echo "X625D OrangeFox unofficial $(date -u)" > out/target/product/X625D/build-info.txt
+        # Info commit device-tree biar ketahuan img ini dari commit mana.
+        # (device-tree di-checkout tanpa .git ikut ke-copy? .git TIDAK ikut `cp *`,
+        # jadi baca git-nya langsung dari $GITHUB_WORKSPACE/device-tree.)
+        DT_SHORT=$(git -C $GITHUB_WORKSPACE/device-tree rev-parse --short HEAD)
+        DT_SHA=$(git -C $GITHUB_WORKSPACE/device-tree rev-parse HEAD)
+        DT_MSG=$(git -C $GITHUB_WORKSPACE/device-tree log -1 --pretty=%s)
+        echo "$DT_SHORT $DT_MSG" >> out/target/product/X625D/build-info.txt
+        echo "$DT_SHA" >> out/target/product/X625D/build-info.txt
+        echo "DT_SHORT=$DT_SHORT" >> $GITHUB_ENV
+        cat out/target/product/X625D/build-info.txt
 
     - name: Upload recovery.img
       uses: actions/upload-artifact@v4
@@ -172,9 +182,14 @@ jobs:
         else
           TAG=$(date +'%Y%m%d%H%M')
         fi
+        # Suffix commit biar jelas img ini dari commit mana: OrangeFox-X625D-<TAG>-<SHORT>.img
+        SHORT="${DT_SHORT:-$(cd device-tree && git rev-parse --short HEAD)}"
         echo "TAG=$TAG" >> $GITHUB_ENV
-        cp fox/out/target/product/X625D/recovery.img OrangeFox-X625D-$TAG.img
-        ls -lh OrangeFox-X625D-$TAG.img
+        echo "FILENAME=OrangeFox-X625D-$TAG-$SHORT" >> $GITHUB_ENV
+        cp fox/out/target/product/X625D/recovery.img OrangeFox-X625D-$TAG-$SHORT.img
+        cp fox/out/target/product/X625D/build-info.txt build-info-$TAG-$SHORT.txt
+        ls -lh OrangeFox-X625D-$TAG-$SHORT.img build-info-$TAG-$SHORT.txt
+        cat build-info-$TAG-$SHORT.txt
 
     - name: Prepare release notes (branch + commit + link)
       run: |
@@ -219,10 +234,12 @@ jobs:
       uses: softprops/action-gh-release@v2
       with:
         tag_name: ${{ env.TAG }}
-        name: ${{ env.TAG }}
+        name: ${{ env.TAG }} ${{ env.DT_SHORT }}
         body_path: release-notes.md
         prerelease: ${{ env.IS_PRERELEASE }}
-        files: OrangeFox-X625D-${{ env.TAG }}.img
+        files: |
+          ${{ env.FILENAME }}.img
+          build-info-${{ env.TAG }}-${{ env.DT_SHORT }}.txt
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -231,6 +248,8 @@ jobs:
       uses: softprops/action-gh-release@v2
       with:
         tag_name: ${{ github.event.release.tag_name }}
-        files: OrangeFox-X625D-${{ env.TAG }}.img
+        files: |
+          ${{ env.FILENAME }}.img
+          build-info-${{ env.TAG }}-${{ env.DT_SHORT }}.txt
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
