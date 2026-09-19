@@ -134,6 +134,7 @@ VENDOR_SECURITY_PATCH := 2020-10-05
 PLATFORM_VERSION := 9
 
 # Debug
-TWRP_EVENT_LOGGING := true
+# MATI: true = tiap tap nongol print merah koordinat di Copy Log (risih kalau tidak debug)
+TWRP_EVENT_LOGGING := false
 # USB gadget di-handle manual di init.recovery.mt6765.rc (adb + mtp.gs0 + ffs.mtp)
 # karena default init.recovery.usb.rc tidak bring-up UDC musb-hdrc di device ini.
