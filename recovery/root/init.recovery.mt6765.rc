@@ -117,10 +117,16 @@ on property:twrp.decrypt.done=true
 # /sbin/linker64), akibatnya execve ENOENT + crash-loop tiap 5 detik
 # ("init.svc.teei_daemon=restarting", boot lambat, TEE mati, decrypt gagal).
 # /vendor/bin TIDAK dipakai: ketutup mount partisi vendor stock saat boot.
-# user/group SYSTEM persis stock (microtrust.rc): TEE microtrust mengotentikasi
-# uid client DCIH - tebakan kuat penolakan -1000 kemarin karena daemon jalan
-# sebagai root. Stock: user system + binary mode 755.
-# (Percobaan user root: jalan tapi signature ditolak; sekarang samakan stock.)
+# STATUS DECRYPT (2026-09-19, verifikasi live, build repack-4e318eb):
+# Footer FDE terbaca, UT HAL ke-load, teei_daemon RUNNING sebagai system dan
+# berkomunikasi dengan TEE (tz_vfs_read), thh dirs direplika - hasil tetap:
+# "Error starting keymaster signature transaction: -1000" untuk
+# default_password maupun PIN benar. System (boot state sama/orange) BISA
+# unwrap -> penolakan ini spesifik konteks recovery (kebijakan TA microtrust),
+# bukan uid/file yang kurang. KESIMPULAN: decrypt FDE X625D via custom
+# recovery MUSTAHIL. teei tetap di-start agar keymaster gagal CEPAT (-1000),
+# bukan hang D-state di kernel (itu yang bikin boot lambat dulu).
+# Jalur resmi: DFE (dfe_patch service, terbukti jalan) + data unencrypted.
 service teei_daemon /sbin/teei_daemon
     class core
     user system
@@ -129,7 +135,14 @@ service teei_daemon /sbin/teei_daemon
     seclabel u:r:recovery:s0
 
 on boot
+    # /sbin di ramdisk build ini mode 750 root:root - tanpa traverse, user
+    # system tidak bisa exec apa pun di dalamnya (EACCES). Buka agar servis
+    # user system (teei) bisa jalan. Terbukti live via adb.
+    chmod 755 /sbin
     chmod 0755 /sbin/teei_daemon
+    chmod 0755 /sbin/linker64 /sbin/linker
+    chmod 0755 /sbin/libc.so /sbin/libm.so /sbin/libdl.so
+    chmod 0755 /sbin/libc++.so /sbin/liblog.so /sbin/libcutils.so
     chmod 0660 /dev/teei_client
     chown system system /dev/teei_client
     chmod 0660 /dev/teei_config
