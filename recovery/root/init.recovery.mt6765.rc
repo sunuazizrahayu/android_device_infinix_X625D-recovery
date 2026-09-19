@@ -117,10 +117,13 @@ on property:twrp.decrypt.done=true
 # /sbin/linker64), akibatnya execve ENOENT + crash-loop tiap 5 detik
 # ("init.svc.teei_daemon=restarting", boot lambat, TEE mati, decrypt gagal).
 # /vendor/bin TIDAK dipakai: ketutup mount partisi vendor stock saat boot.
+# user/group ROOT (bukan system): file ramdisk mode 750 root:root,
+# user system -> execve EACCES "Permission denied" + crash-loop (bukti dmesg).
+# Ikut pola cactus (user root group root) - daemon tetap bisa buka /dev/teei_*.
 service teei_daemon /sbin/teei_daemon
     class core
-    user system
-    group system
+    user root
+    group root
     disabled
     seclabel u:r:recovery:s0
 
@@ -145,10 +148,16 @@ on boot
     start teei_daemon
 
 # Auto DFE: cegah system mengenkripsi ulang /data (idempotent, aman di tiap boot).
-# Script memeriksa vendor fstab.mt6765, hanya mengubah forcefdeorfbe= -> encryptable=
-# kalau flag itu masih ada. Tidak pernah menggagalkan boot (exit 0 selalu).
+# Dijalankan sebagai oneshot service (BUKAN `exec` di `on boot`): terbukti di
+# build a512309 `exec -- /sbin/dfe_patch.sh` tidak pernah jalan (tidak ada
+# /tmp/dfe_patch.log) sementara service oneshot (dt2w_enable) jalan normal.
+service dfe_patch /sbin/dfe_patch.sh
+    disabled
+    oneshot
+    seclabel u:r:recovery:s0
+
 on boot
-    exec -- /sbin/dfe_patch.sh
+    start dfe_patch
 
 # DT2W (NVT36xxx-ts / NT36672A, MT6765) — sesuai modul referensi
 # android_device_infinix_X625D-module_dt2w (hasil investigasi via ADB):
