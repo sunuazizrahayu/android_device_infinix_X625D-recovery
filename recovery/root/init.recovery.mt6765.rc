@@ -106,13 +106,26 @@ on boot
 on boot
     exec -- /sbin/dfe_patch.sh
 
-# DT2W percobaan: nilai stock saat gesture nyala = w:1;m:1;c:1;cc:1; (cc = double-tap)
-# Ditulis 2x (boot + post-fs-data) karena node proc baru ada setelah driver probe ~1.8s.
-# Kalau driver nolak, cek dmesg "bad command format" - write init tidak menggagalkan boot.
-on boot
-    chmod 0666 /proc/gesture_state
-    write /proc/gesture_state "w:1;m:1;c:1;cc:1;"
+# DT2W (NVT36xxx-ts / NT36672A, MT6765) — sesuai modul referensi
+# android_device_infinix_X625D-module_dt2w (hasil investigasi via ADB):
+#  - Write node = /proc/gesture_function (BUKAN /proc/gesture_state, itu read-only status).
+#  - Format = TEPAT 3 char tanpa newline, contoh "cc1" = enable Double Tap
+#    (dmesg: "CTP-gesture buff 0:c 1:c 2:1!!!").
+#  - JANGAN tulis "cc:1" / "w:1;m:1;c:1;cc:1;" (pakai titik dua/koma) — itu bikin hang.
+# Dijalankan via oneshot service (script /sbin/dt2w_enable.sh) karena node proc
+# baru ada setelah driver probe (~1.8s+): `write` langsung di `on boot` bisa jalan
+# SEBELUM node ada lalu gagal diam-diam tanpa retry. Service tidak block boot.
+# Verifikasi: adb shell "cat /proc/gesture_state; cat /tmp/dt2w.log"
+# (harusnya ada "cc:1").
+service dt2w_enable /sbin/dt2w_enable.sh
+    disabled
+    oneshot
+    seclabel u:r:recovery:s0
 
-on property:sys.boot_from_recovery=1
-    chmod 0666 /proc/gesture_state
-    write /proc/gesture_state "w:1;m:1;c:1;cc:1;"
+# Trigger saat recovery sudah running (BUKAN on boot): recovery binary men-disable
+# gesture (ctp_gesture_fun_enable=0) di ~2.6 detik. Enable harus terjadi SETELAH itu,
+# script sendiri masih sleep+verifikasi+tulis ulang. seclabel WAJIB ada — tanpa itu
+# service tidak diregistrasi init di build ini (hasil debug: service tanpa seclabel
+# tidak muncul di init.svc.* samasekali).
+on property:init.svc.recovery=running
+    start dt2w_enable
