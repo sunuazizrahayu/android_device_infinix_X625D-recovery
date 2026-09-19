@@ -1,0 +1,15 @@
+<manifest version="1.0" type="device">
+    <!-- Manifest keymaster 3.0 untuk decrypt FDE MT6765 (pola Xiaomi cactus).
+         Tanpa ini hwservicemanager tidak expose IKeymasterDevice/default,
+         keymaster-3-0 service jalan tapi tidak ketemu, decrypt gagal. -->
+    <hal format="hidl">
+        <name>android.hardware.keymaster</name>
+        <transport>hwbinder</transport>
+        <version>3.0</version>
+        <interface>
+            <name>IKeymasterDevice</name>
+            <instance>default</instance>
+        </interface>
+        <fqname>@3.0::IKeymasterDevice/default</fqname>
+    </hal>
+</manifest>

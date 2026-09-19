@@ -123,6 +123,15 @@ TARGET_USE_CUSTOM_LUN_FILE_PATH := /config/usb_gadget/g1/functions/mass_storage.
 # Padanannya di fstab: encryptable=/dev/block/.../metadata + fileencryption=aes-256-cts.
 TW_INCLUDE_CRYPTO := true
 TW_INCLUDE_CRYPTO_FBE := true
+# Relink keymaster service + hwservicemanager (wajib untuk FDE MT6765 microtrust).
+# Referensi working: Xiaomi cactus (MT6765, Android 9, Dinolek) - tanpa ini
+# decrypt hanya coba software keystore lalu gagal "Unable to decrypt with default password".
+# Binary service-nya ikut ke ramdisk via relink, di-start dari init.recovery.mt6765.rc.
+TW_RECOVERY_ADDITIONAL_RELINK_FILES += \
+    $(TARGET_OUT_VENDOR_SHARED_LIBRARIES)/hw/android.hardware.keymaster@3.0-impl.so \
+    $(TARGET_OUT_VENDOR_EXECUTABLES)/hw/android.hardware.keymaster@3.0-service \
+    $(TARGET_OUT_VENDOR_SHARED_LIBRARIES)/libkeymaster3device.so \
+    $(TARGET_OUT_SHARED_LIBRARIES)/libpuresoftkeymasterdevice.so
 TW_CRYPTO_FS_TYPE := "ext4"
 TW_CRYPTO_REAL_BLKDEV := "/dev/block/platform/bootdevice/by-name/userdata"
 TW_CRYPTO_MNT_POINT := "/data"

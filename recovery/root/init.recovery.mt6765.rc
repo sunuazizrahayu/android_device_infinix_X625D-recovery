@@ -70,15 +70,55 @@ on post-fs
     symlink /dev/block/mmcblk0boot0 /dev/block/platform/bootdevice/by-name/preloader_a
     symlink /dev/block/mmcblk0boot1 /dev/block/platform/bootdevice/by-name/preloader_b
 
+# Stack decrypt FDE MT6765 (ikut pola working Xiaomi cactus, SoC sama):
+# hwservicemanager + servicemanager wajib jalan sebelum keymaster-3-0,
+# keymaster-3-0 + teei_daemon jalan saat ro.crypto.state=encrypted,
+# berhenti setelah twrp.decrypt.done=true (hemat RAM + hindari hang).
+on init
+    start hwservicemanager
+    start servicemanager
+
+service hwservicemanager /sbin/hwservicemanager
+    user root
+    group root
+    disabled
+    onrestart setprop hwservicemanager.ready false
+    seclabel u:r:recovery:s0
+
+service servicemanager /sbin/servicemanager
+    user root
+    group root
+    disabled
+    onrestart setprop servicemanager.ready false
+    seclabel u:r:recovery:s0
+
+service keymaster-3-0 /sbin/android.hardware.keymaster@3.0-service
+    user root
+    group root
+    disabled
+    oneshot
+    seclabel u:r:recovery:s0
+
+on property:ro.crypto.state=encrypted
+    start teei_daemon
+    start keymaster-3-0
+
+on property:twrp.decrypt.done=true
+    stop teei_daemon
+    stop keymaster-3-0
+
 # TEE microtrust: teei_daemon WAJIB jalan sebelum decrypt FDE.
 # Tanpa ini keymaster hang di kernel (proses D-state, log "Decrypt took too long")
 # karena /dev/teei_client tidak ada yang serve. Di boot normal daemon ini
 # di-start vendor microtrust.rc (service teei_daemon, class core, user/group system).
+# CATATAN: path /vendor/bin/teei_daemon (blob stock), bukan /sbin (pola cactus).
+# seclabel WAJIB - tanpa itu service tidak diregistrasi init (sama kasusnya kayak dt2w_enable).
 service teei_daemon /vendor/bin/teei_daemon
     class core
     user system
     group system
     disabled
+    seclabel u:r:recovery:s0
 
 on boot
     chmod 0660 /dev/teei_client
