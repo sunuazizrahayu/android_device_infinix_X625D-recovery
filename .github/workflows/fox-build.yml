@@ -2,12 +2,23 @@ name: Build OrangeFox X625D
 
 on:
   workflow_dispatch:
+  release:
+    types: [published]
+  push:
+    branches:
+      - main
 
 permissions:
   contents: write
 
 jobs:
   build:
+    # Auto-rilis: push biasa di-skip, kecuali pesan commit ada [release] / release:
+    # Event manual (dispatch) & publish release selalu jalan.
+    if: >-
+      github.event_name != 'push' ||
+      contains(join(github.event.commits.*.message, ' '), '[release]') ||
+      contains(join(github.event.commits.*.message, ' '), 'release:')
     runs-on: ubuntu-22.04
     steps:
     - name: Checkout device tree
@@ -138,7 +149,12 @@ jobs:
 
     - name: Rename for release
       run: |
-        TAG=$(date +'%Y%m%d%H%M')
+        if [ "${{ github.event_name }}" = "release" ]; then
+          # Dipicu dari halaman Release -> pakai tag rilis itu, jangan bikin tag baru
+          TAG="${{ github.event.release.tag_name }}"
+        else
+          TAG=$(date +'%Y%m%d%H%M')
+        fi
         echo "TAG=$TAG" >> $GITHUB_ENV
         cp fox/out/target/product/X625D/recovery.img OrangeFox-X625D-$TAG.img
         ls -lh OrangeFox-X625D-$TAG.img
@@ -147,6 +163,10 @@ jobs:
       run: |
         cd device-tree
         BRANCH="${GITHUB_REF_NAME}"
+        # Saat dipicu event release, GITHUB_REF_NAME = tag, ambil branch dari payload bila ada
+        if [ "${{ github.event_name }}" = "release" ]; then
+          BRANCH="${{ github.event.release.target_commitish }}"
+        fi
         SHA=$(git rev-parse HEAD)
         SHORT=$(git rev-parse --short HEAD)
         MSG=$(git log -1 --pretty=%s)
@@ -155,9 +175,15 @@ jobs:
         echo "DT_SHA=$SHA" >> $GITHUB_ENV
         echo "DT_SHORT=$SHORT" >> $GITHUB_ENV
         echo "Branch: $BRANCH @ $SHORT ($MSG)"
-        # Default pre-release; jadi rilis stabil hanya kalau pesan commit ada
-        # [release] / [release] xxx / [release]: xxx / release: xxx
-        if echo "$MSG" | grep -iqE '\[release\]|release:'; then
+        # Kalau dipicu dari Release yang sudah ada -> ikuti flag prerelease-nya, jangan timpa
+        if [ "${{ github.event_name }}" = "release" ]; then
+          echo "IS_PRERELEASE=${{ github.event.release.prerelease }}" >> $GITHUB_ENV
+          echo "Triggered by release -> keep prerelease=${{ github.event.release.prerelease }}"
+        elif [ "${{ github.event_name }}" = "push" ]; then
+          # Job push hanya jalan kalau commit ada [release] -> selalu stabil
+          echo "IS_PRERELEASE=false" >> $GITHUB_ENV
+          echo "Push with [release] -> stable release"
+        elif echo "$MSG" | grep -iqE '\[release\]|release:'; then
           echo "IS_PRERELEASE=false" >> $GITHUB_ENV
           echo "Match [release] -> stable release"
         else
@@ -168,17 +194,26 @@ jobs:
         Unofficial Custom Recovery X625D auto-build ${{ env.TAG }}
 
         Device tree: [\`${BRANCH}\`](https://github.com/${REPO}/tree/${BRANCH}) — [\`${SHORT}\`](https://github.com/${REPO}/commit/${SHA}) ${MSG}
-        OrangeFox source: branch \`9.0\` (legacy sync)
         EOF
         cat $GITHUB_WORKSPACE/release-notes.md
 
     - name: Release langsung
+      if: github.event_name != 'release'
       uses: softprops/action-gh-release@v2
       with:
         tag_name: ${{ env.TAG }}
         name: ${{ env.TAG }}
         body_path: release-notes.md
         prerelease: ${{ env.IS_PRERELEASE }}
+        files: OrangeFox-X625D-${{ env.TAG }}.img
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Upload ke release pemicu (auto-build saat rilis)
+      if: github.event_name == 'release'
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ github.event.release.tag_name }}
         files: OrangeFox-X625D-${{ env.TAG }}.img
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
