@@ -111,9 +111,13 @@ on property:twrp.decrypt.done=true
 # Tanpa ini keymaster hang di kernel (proses D-state, log "Decrypt took too long")
 # karena /dev/teei_client tidak ada yang serve. Di boot normal daemon ini
 # di-start vendor microtrust.rc (service teei_daemon, class core, user/group system).
-# CATATAN: path /vendor/bin/teei_daemon (blob stock), bukan /sbin (pola cactus).
-# seclabel WAJIB - tanpa itu service tidak diregistrasi init (sama kasusnya kayak dt2w_enable).
-service teei_daemon /vendor/bin/teei_daemon
+# CATATAN: pakai salinan /sbin/teei_daemon (blob stock yang INTERP-nya sudah
+# dipatch /system/bin/linker64 -> /sbin/linker64). Stock INTERP tidak jalan di
+# recovery: ramdisk tidak punya /system/bin/linker64 (linker recovery ada di
+# /sbin/linker64), akibatnya execve ENOENT + crash-loop tiap 5 detik
+# ("init.svc.teei_daemon=restarting", boot lambat, TEE mati, decrypt gagal).
+# /vendor/bin TIDAK dipakai: ketutup mount partisi vendor stock saat boot.
+service teei_daemon /sbin/teei_daemon
     class core
     user system
     group system
