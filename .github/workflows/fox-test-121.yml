@@ -40,8 +40,11 @@ jobs:
     - name: Sync OrangeFox 12.1 (minimal manifest)
       run: |
         git clone --depth=1 https://gitlab.com/OrangeFox/sync.git OrangeFox_sync
-        chmod +x OrangeFox_sync/orangefox_sync.sh
-        ./OrangeFox_sync/orangefox_sync.sh --branch 12.1 --path $GITHUB_WORKSPACE/fox121
+        # WAJIB jalan dari dalam OrangeFox_sync: script mencari patches/
+        # relatif dari PWD, dan folder patches/ ada di repo sync ini
+        cd OrangeFox_sync
+        chmod +x orangefox_sync.sh
+        ./orangefox_sync.sh --branch 12.1 --path $GITHUB_WORKSPACE/fox121
         df -h
 
     - name: Copy device tree X625D
