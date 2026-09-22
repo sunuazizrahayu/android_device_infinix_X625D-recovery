@@ -51,6 +51,10 @@ jobs:
       run: |
         mkdir -p fox121/device/infinix/X625D
         cp -r device-tree/* fox121/device/infinix/X625D/
+        # envsetup 12.1 loop device/vendor/product dengan bash -e menular:
+        # `test -d product` gagal (minimal manifest tidak punya product/)
+        # langsung mematikan shell tepat setelah vendorsetup terakhir.
+        mkdir -p fox121/product
         ls fox121/device/infinix/X625D
 
     - name: Verify test files (pastikan guard ikut ke-checkout)
