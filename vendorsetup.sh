@@ -61,3 +61,8 @@ else
 		echo "I: This script requires bash. Not processing the $FDEVICE $(basename $0)"
 	fi
 fi
+
+# Penjaga: file ini di-source oleh envsetup.sh di dalam step CI yang jalan
+# dengan bash -e. Status nonzero terakhir akan menggugurkan step tepat
+# setelah baris "including ... vendorsetup.sh". Paksa status 0.
+true
