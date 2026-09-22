@@ -53,6 +53,32 @@ jobs:
         cp -r device-tree/* fox121/device/infinix/X625D/
         ls fox121/device/infinix/X625D
 
+    - name: Verify test files (pastikan guard ikut ke-checkout)
+      run: |
+        git -C device-tree rev-parse --short HEAD
+        git -C device-tree log --oneline -3
+        tail -4 device-tree/vendorsetup.sh
+        ls device-tree/twrp_X625D.mk
+
+    - name: Envsetup
+      working-directory: fox121
+      run: |
+        export LC_ALL=C
+        export ALLOW_MISSING_DEPENDENCIES=true
+        export FOX_BUILD_DEVICE=X625D
+        source build/envsetup.sh
+        echo ENVSETUP_OK
+
+    - name: Lunch
+      working-directory: fox121
+      run: |
+        export LC_ALL=C
+        export ALLOW_MISSING_DEPENDENCIES=true
+        export FOX_BUILD_DEVICE=X625D
+        source build/envsetup.sh
+        lunch twrp_X625D-eng
+        echo LUNCH_OK
+
     - name: Build recovery (test ukuran vs limit 32MB)
       working-directory: fox121
       run: |
