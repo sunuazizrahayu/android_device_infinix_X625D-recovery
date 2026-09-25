@@ -127,6 +127,13 @@ on property:twrp.decrypt.done=true
 # recovery MUSTAHIL. teei tetap di-start agar keymaster gagal CEPAT (-1000),
 # bukan hang D-state di kernel (itu yang bikin boot lambat dulu).
 # Jalur resmi: DFE (dfe_patch service, terbukti jalan) + data unencrypted.
+# JEBAKAN FORMAT DATA: footer FDE tinggal di partisi mentah `metadata`
+# (BUKAN ekor userdata), jadi "Format Data" UI OrangeFox MENINGGALKAN footer
+# basi -> system gagal boot -> loop masuk recovery terus. Obatnya, SETELAH
+# Format Data dan SEBELUM reboot ke system, jalankan dari Terminal OrangeFox:
+#   /sbin/wipe_footer_x625d.sh
+# (script menolak jalan kalau ukuran partisi != 32MB atau magic footer tidak
+# ketemu - fail-closed). Inilah yang dulu "disembuhkan" stock recovery.
 service teei_daemon /sbin/teei_daemon
     class core
     user system

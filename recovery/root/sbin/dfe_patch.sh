@@ -7,12 +7,12 @@
 # Script ini idempotent: hanya mengubah forcefdeorfbe= -> encryptable=
 # kalau flag itu masih ada. Tidak pernah gagal (exit 0 selalu) agar
 # tidak menghambat boot recovery.
-# REVISI: patch VENDOR + SYSTEM (dulu cuma vendor). Alasan enkripsi balik lagi
-# setelah boot system: fstab forcefdeorfbe ada di DUA tempat (vendor/etc/fstab.mt6765
-# dan system/etc/fstab.mt6765 / ramdisk boot). Kalau cuma vendor yang dipatch,
-# system boot tetap lihat force flag dari salinan system -> enkripsi ulang jalan lagi.
-# Plus: OF_DONT_PATCH_ENCRYPTED_DEVICE=1 di fox_X625D.mk mematikan patcher bawaan
-# OrangeFox, jadi script ini satu-satunya pertahanan - harus robust.
+# CATATAN: patch VENDOR saja (vendor/etc/fstab.mt6765). Hasil cek live (adb):
+# partisi system stock X625D TIDAK berisi fstab dan mount rw-nya gagal
+# (Invalid argument). Salinan fstab di ramdisk boot.img tidak bisa dipatch
+# dari sini - itu urusan patcher OrangeFox / DFE zip saat install ROM.
+# Plus: OF_DONT_PATCH_ENCRYPTED_DEVICE=1 di fox_X625D.mk mematikan patcher
+# bawaan OrangeFox, jadi script ini satu-satunya pertahanan - harus robust.
 export PATH=/sbin:/system/bin:/vendor/bin
 LOG=/tmp/dfe_patch.log
 echo "--- dfe_patch jalan ---" >> $LOG 2>&1
