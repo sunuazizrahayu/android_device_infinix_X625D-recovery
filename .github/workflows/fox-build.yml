@@ -163,7 +163,6 @@ jobs:
         DT_MSG=$(git -C $GITHUB_WORKSPACE/device-tree log -1 --pretty=%s)
         echo "$DT_SHORT $DT_MSG" >> out/target/product/X625D/build-info.txt
         echo "$DT_SHA" >> out/target/product/X625D/build-info.txt
-        echo "DT_SHORT=$DT_SHORT" >> $GITHUB_ENV
         cat out/target/product/X625D/build-info.txt
 
     - name: Upload recovery.img
@@ -179,38 +178,55 @@ jobs:
         if [ "${{ github.event_name }}" = "release" ]; then
           # Dipicu dari halaman Release -> pakai tag rilis itu, jangan bikin tag baru
           TAG="${{ github.event.release.tag_name }}"
+          BRANCH="${{ github.event.release.target_commitish }}"
         else
           TAG=$(date +'%Y%m%d%H%M')
+          BRANCH="${GITHUB_REF_NAME}"
         fi
-        # Suffix commit biar jelas img ini dari commit mana: OrangeFox-X625D-<TAG>-<SHORT>.img
-        SHORT="${DT_SHORT:-$(cd device-tree && git rev-parse --short HEAD)}"
+        SHORT=$(git -C device-tree rev-parse --short HEAD)
         echo "TAG=$TAG" >> $GITHUB_ENV
-        echo "FILENAME=OrangeFox-X625D-$TAG-$SHORT" >> $GITHUB_ENV
-        cp fox/out/target/product/X625D/recovery.img OrangeFox-X625D-$TAG-$SHORT.img
-        cp fox/out/target/product/X625D/build-info.txt build-info-$TAG-$SHORT.txt
-        ls -lh OrangeFox-X625D-$TAG-$SHORT.img build-info-$TAG-$SHORT.txt
-        cat build-info-$TAG-$SHORT.txt
+        echo "BRANCH=$BRANCH" >> $GITHUB_ENV
+        echo "DT_SHORT=$SHORT" >> $GITHUB_ENV
+        if [ "$BRANCH" = "main" ]; then
+          # main: stabil, cuma pakai tanggal: OrangeFox-X625D-<TAG>.img
+          FILENAME="OrangeFox-X625D-$TAG"
+          BUILDINFO="build-info-$TAG.txt"
+          RELEASE_NAME="$TAG"
+        else
+          # non-main: pre-release + ID commit: OrangeFox-X625D-<TAG>-<SHORT>.img
+          FILENAME="OrangeFox-X625D-$TAG-$SHORT"
+          BUILDINFO="build-info-$TAG-$SHORT.txt"
+          RELEASE_NAME="$TAG $SHORT"
+        fi
+        echo "FILENAME=$FILENAME" >> $GITHUB_ENV
+        echo "BUILDINFO=$BUILDINFO" >> $GITHUB_ENV
+        echo "RELEASE_NAME=$RELEASE_NAME" >> $GITHUB_ENV
+        cp fox/out/target/product/X625D/recovery.img "$FILENAME.img"
+        cp fox/out/target/product/X625D/build-info.txt "$BUILDINFO"
+        ls -lh "$FILENAME.img" "$BUILDINFO"
+        cat "$BUILDINFO"
 
-    - name: Prepare release notes (branch + commit + link)
+    - name: Prepare release notes (main = tanggal saja, non-main = + ID commit)
       run: |
         cd device-tree
-        BRANCH="${GITHUB_REF_NAME}"
-        # Saat dipicu event release, GITHUB_REF_NAME = tag, ambil branch dari payload bila ada
-        if [ "${{ github.event_name }}" = "release" ]; then
-          BRANCH="${{ github.event.release.target_commitish }}"
-        fi
+        MSG=$(git log -1 --pretty=%s)
         SHA=$(git rev-parse HEAD)
         SHORT=$(git rev-parse --short HEAD)
-        MSG=$(git log -1 --pretty=%s)
+        BRANCH="${{ env.BRANCH }}"
+        if [ -z "$BRANCH" ]; then
+          BRANCH="${GITHUB_REF_NAME}"
+          if [ "${{ github.event_name }}" = "release" ]; then
+            BRANCH="${{ github.event.release.target_commitish }}"
+          fi
+        fi
         REPO="${GITHUB_REPOSITORY}"
-        echo "DT_BRANCH=$BRANCH" >> $GITHUB_ENV
-        echo "DT_SHA=$SHA" >> $GITHUB_ENV
-        echo "DT_SHORT=$SHORT" >> $GITHUB_ENV
-        echo "Branch: $BRANCH @ $SHORT ($MSG)"
-        # Kalau dipicu dari Release yang sudah ada -> ikuti flag prerelease-nya, jangan timpa
+        # Aturan pre-release: selain main selalu pre-release
         if [ "${{ github.event_name }}" = "release" ]; then
           echo "IS_PRERELEASE=${{ github.event.release.prerelease }}" >> $GITHUB_ENV
           echo "Triggered by release -> keep prerelease=${{ github.event.release.prerelease }}"
+        elif [ "$BRANCH" != "main" ]; then
+          echo "IS_PRERELEASE=true" >> $GITHUB_ENV
+          echo "Branch $BRANCH (bukan main) -> pre-release"
         elif [ "${{ github.event_name }}" = "push" ]; then
           # Job push hanya jalan kalau commit ada [release] -> selalu stabil
           echo "IS_PRERELEASE=false" >> $GITHUB_ENV
@@ -222,11 +238,17 @@ jobs:
           echo "IS_PRERELEASE=true" >> $GITHUB_ENV
           echo "No [release] flag -> pre-release"
         fi
-        cat > $GITHUB_WORKSPACE/release-notes.md <<EOF
+        if [ "$BRANCH" = "main" ]; then
+          cat > $GITHUB_WORKSPACE/release-notes.md <<EOF
         Unofficial Custom Recovery X625D auto-build ${{ env.TAG }}
+        EOF
+        else
+          cat > $GITHUB_WORKSPACE/release-notes.md <<EOF
+        Unofficial Custom Recovery X625D auto-build ${{ env.TAG }} (pre-release ${BRANCH})
 
         Device tree: [\`${BRANCH}\`](https://github.com/${REPO}/tree/${BRANCH}) — [\`${SHORT}\`](https://github.com/${REPO}/commit/${SHA}) ${MSG}
         EOF
+        fi
         cat $GITHUB_WORKSPACE/release-notes.md
 
     - name: Release langsung
@@ -234,12 +256,12 @@ jobs:
       uses: softprops/action-gh-release@v3
       with:
         tag_name: ${{ env.TAG }}
-        name: ${{ env.TAG }} ${{ env.DT_SHORT }}
+        name: ${{ env.RELEASE_NAME }}
         body_path: release-notes.md
         prerelease: ${{ env.IS_PRERELEASE }}
         files: |
           ${{ env.FILENAME }}.img
-          build-info-${{ env.TAG }}-${{ env.DT_SHORT }}.txt
+          ${{ env.BUILDINFO }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -250,6 +272,6 @@ jobs:
         tag_name: ${{ github.event.release.tag_name }}
         files: |
           ${{ env.FILENAME }}.img
-          build-info-${{ env.TAG }}-${{ env.DT_SHORT }}.txt
+          ${{ env.BUILDINFO }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
